@@ -65,6 +65,10 @@ public class Arrow : MonoBehaviour
     private bool checkpointsUpdated = false;
     private List<Transform> _selectedCheckpoints = new List<Transform>();
     private ClickableBox _clickableBox;
+    private Vector3 _arrowHeadStartPosition;
+    private Vector3 _tailSpheres3Position;
+    private bool _noteArrowHeadStartPosition = true;
+    private float _ArrowHeadTravelDistance = 0f;
 
     private bool _isDissolvingTail = false;
     private float _dissolveTimer = 0f;
@@ -345,10 +349,19 @@ public class Arrow : MonoBehaviour
                 return;
             }
 
+            if (_noteArrowHeadStartPosition)
+            {
+                _arrowHeadStartPosition = _arrowHead.localPosition;
+                _tailSpheres3Position = _tailSpheres[3].localPosition;
+                _noteArrowHeadStartPosition = false;
+            }
+
             Vector3 target = _selectedCheckpoints[currentCheckpointIndex].position;
             Vector3 dir = target - _arrowHead.position;
 
             _arrowHead.position = Vector3.MoveTowards(_arrowHead.position, target, moveSpeed * Time.deltaTime);
+
+            _ArrowHeadTravelDistance = Vector3.Distance(_arrowHead.localPosition, _arrowHeadStartPosition);
 
             if (dir.sqrMagnitude > 0.001f)
             {
@@ -389,6 +402,27 @@ public class Arrow : MonoBehaviour
             _tailCylinders[1].localScale = new Vector3(50, Vector3.Distance(_tailSpheres[1].localPosition, _tailCylinders[1].localPosition), 50);
             _tailCylinders[2].localScale = new Vector3(50, Vector3.Distance(_tailSpheres[2].localPosition, _tailCylinders[2].localPosition), 50);
             _tailCylinders[3].localScale = new Vector3(50, Vector3.Distance(_tailSpheres[3].localPosition, _tailCylinders[3].localPosition), 50);
+
+
+            if (_tailCylinders[2].localScale.y > 0.15f && !_tailSpheres[3].gameObject.activeSelf)
+            {
+                var dirS1 = _tailSpheres[2].position - _tailCylinders[2].position;
+                dirS1.Normalize();
+                _tailSpheres[2].localPosition = new Vector3(_tailSpheres[2].localPosition.x, _tailSpheres[2].localPosition.y, 0) - (dirS1 * _ArrowHeadTravelDistance);
+            }
+
+            if (_tailCylinders[3].localScale.y > 15f)
+            {
+                var dirS1 = _tailSpheres[3].position - _tailCylinders[3].position;
+                dirS1.Normalize();
+                _tailSpheres[3].localPosition = _tailSpheres3Position - (dirS1 * _ArrowHeadTravelDistance);
+            }
+            else if(_tailSpheres[3].gameObject.activeSelf)
+            {
+                _tailSpheres[3].gameObject.SetActive(false);
+                _tailCylinders[3].gameObject.SetActive(false);
+                _noteArrowHeadStartPosition = true;
+            }
         }
     }
 
