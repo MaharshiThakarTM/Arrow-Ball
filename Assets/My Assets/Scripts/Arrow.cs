@@ -513,7 +513,15 @@ public class Arrow : MonoBehaviour
 
     private void StartCollapseSequence()
     {
-        AnimateCylinder(4);
+        int activeChildCount = 0;
+        foreach (var item in _tailCylinders)
+        {
+            if (item.gameObject.activeSelf)
+            {
+                activeChildCount++;
+            }
+        }
+        AnimateCylinder(activeChildCount - 1);
     }
 
     private void AnimateCylinder(int index)
@@ -524,7 +532,7 @@ public class Arrow : MonoBehaviour
         Vector3 headPos = _arrowHead.localPosition;
         float cyl0Scale = _tailCylinders[0].localScale.y;
 
-        float checkpointDis = Vector3.Distance(_arrowHead.localPosition, checkpoints[0].localPosition);
+        float checkpointDis = Vector3.Distance(_arrowHead.localPosition, _selectedCheckpoints[currentCheckpointIndex].localPosition);
 
         bool activeStatus;
         float startValue;
@@ -559,7 +567,15 @@ public class Arrow : MonoBehaviour
             _tailSpheres[index].localPosition = spherePos - dir * delta;
 
             // Slide arrow head up and stretch cylinder[0] to follow
-            _arrowHead.localPosition = headPos + Vector3.up * delta;
+            if (Mathf.Approximately(_arrowHead.localEulerAngles.z, 0))
+                _arrowHead.localPosition = headPos + Vector3.up * delta;
+            else if (Mathf.Approximately(_arrowHead.localEulerAngles.z, 270))
+                _arrowHead.localPosition = headPos + Vector3.right * delta;
+            else if (Mathf.Approximately(_arrowHead.localEulerAngles.z, 90))
+                _arrowHead.localPosition = headPos + Vector3.left * delta;
+            else if (Mathf.Approximately(_arrowHead.localEulerAngles.z, 180) || Mathf.Approximately(_arrowHead.localEulerAngles.z, -180))
+                _arrowHead.localPosition = headPos + Vector3.down * delta;
+
             _tailCylinders[0].position = _arrowHead.position;
 
             if (index > 0)
@@ -575,10 +591,137 @@ public class Arrow : MonoBehaviour
                 AnimateCylinder(index - 1);
             else
             {
-                var dir1 = _arrowHead.position - checkpoints[1].position;
-                dir1.Normalize();
-                _arrowHead.localEulerAngles = new Vector3(0, 0, dir1.x * 90);
+                if (currentCheckpointIndex <= _selectedCheckpoints.Count - 2)
+                {
+                    var dir1 = _arrowHead.position - _selectedCheckpoints[currentCheckpointIndex + 1].position;
+                    dir1.Normalize();
+                    if (dir1.x == -1)
+                    {
+                        _arrowHead.localEulerAngles = new Vector3(0, 0, -90);
+                    }
+                    if (dir1.x == 1)
+                    {
+                        _arrowHead.localEulerAngles = new Vector3(0, 0, 90);
+                    }
+                    if (dir1.y == 1)
+                    {
+                        _arrowHead.localEulerAngles = new Vector3(0, 0, 180);
+                    }
+                    if (dir1.y == -1)
+                    {
+                        _arrowHead.localEulerAngles = new Vector3(0, 0, 0);
+                    }
+
+                    int activeChildCount = 0;
+                    foreach (var item in _tailCylinders)
+                    {
+                        if (item.gameObject.activeSelf)
+                        {
+                            activeChildCount++;
+                        }
+                    }
+
+                    for (int i = activeChildCount; i >= 0; i--)
+                    {
+                        if (i > 0)
+                        {
+                            _tailCylinders[i].position = _tailCylinders[i - 1].position;
+                            _tailCylinders[i].rotation = _tailCylinders[i - 1].rotation;
+                            _tailCylinders[i].localScale = _tailCylinders[i - 1].localScale;
+
+
+
+                            if (i == activeChildCount)
+                            {
+                                _tailCylinders[i].gameObject.SetActive(true);
+                                _tailSpheres[i].gameObject.SetActive(true);
+                            }
+                        }
+                        else
+                        {
+                            _tailCylinders[i].position = _arrowHead.position;
+                            _tailCylinders[i].rotation = _arrowHead.rotation;
+                            _tailCylinders[i].localScale = new Vector3(50, 0, 50);
+                        }
+
+                        if (i != activeChildCount)
+                            _tailSpheres[i].localPosition = _tailCylinders[i + 1].localPosition;
+                        else
+                        {
+                            _tailSpheres[i].localPosition = _tailCylinders[i].localPosition;
+                            float scale = _tailCylinders[i].localScale.y;
+                            if (_tailCylinders[i].localEulerAngles.z == 0)
+                            {
+                                _tailSpheres[i].localPosition = new Vector3(_tailSpheres[i].localPosition.x, _tailSpheres[i].localPosition.y - scale, _tailSpheres[i].localPosition.z);
+                            }
+                            else if (_tailCylinders[i].localEulerAngles.z == 90)
+                            {
+                                _tailSpheres[i].localPosition = new Vector3(_tailSpheres[i].localPosition.x + scale, _tailSpheres[i].localPosition.y, _tailSpheres[i].localPosition.z);
+                            }
+                            else if (_tailCylinders[i].localEulerAngles.z == -90)
+                            {
+                                _tailSpheres[i].localPosition = new Vector3(_tailSpheres[i].localPosition.x - scale, _tailSpheres[i].localPosition.y, _tailSpheres[i].localPosition.z);
+                            }
+                            else if (_tailCylinders[i].localEulerAngles.z == 180 || _tailCylinders[i].localEulerAngles.z == -180)
+                            {
+                                _tailSpheres[i].localPosition = new Vector3(_tailSpheres[i].localPosition.x, _tailSpheres[i].localPosition.y + scale, _tailSpheres[i].localPosition.z);
+                            }
+                        }
+                    }
+                    currentCheckpointIndex++;
+                    AnimateCylinder(activeChildCount);
+                }
+                else
+                {
+                    Dissolve();
+                }
             }
+        });
+    }
+
+    void Dissolve()
+    {
+        Debug.Log("The END is HERE !!!!!!!!!!!!!!!!");
+        _arrowHead.gameObject.SetActive(false);
+
+        int activeChildCount = 0;
+        foreach (var item in _tailCylinders)
+        {
+            if (item.gameObject.activeSelf)
+            {
+                activeChildCount++;
+            }
+        }
+
+        for (int i = _tailCylinders.Count; i > 0; i--)
+        {
+            if (i <= activeChildCount)
+            {
+                _tailCylinders[i].localPosition = _tailCylinders[i - 1].localPosition;
+                _tailCylinders[i].rotation = _tailCylinders[i - 1].rotation;
+                _tailCylinders[i].localScale = _tailCylinders[i - 1].localScale;
+                _tailSpheres[i].localPosition = _tailSpheres[i - 1].localPosition;
+            }
+        }
+        _tailCylinders[activeChildCount].gameObject.SetActive(true);
+        _tailSpheres[activeChildCount].gameObject.SetActive(true);
+
+        int currIndex = 0;
+        float startValue;
+        startValue = _tailCylinders[currIndex].localScale.y;
+        float duration = startValue / moveSpeed;
+        _tailCylinders[currIndex + 1].localPosition = _tailCylinders[currIndex].localPosition + new Vector3(0, startValue, 0);
+        float nextCylinderPosition = _tailCylinders[currIndex + 1].localPosition.y;
+        _tailCylinders[currIndex + 1].localScale = new Vector3(50, 0, 50);
+
+        ln1 = LeanTween.value(startValue, 0, duration).setOnUpdate((float value) =>
+        {
+            _tailCylinders[currIndex].localScale = new Vector3(50, value, 50);
+            _tailCylinders[currIndex + 1].localPosition = new Vector3(0, nextCylinderPosition - (startValue - value), 0);
+            _tailCylinders[currIndex + 1].localScale = new Vector3(50, startValue - value, 50);
+        }).setOnComplete(() => 
+        {
+            currIndex++;
         });
     }
 
