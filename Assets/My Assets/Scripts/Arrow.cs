@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using static UnityEngine.Rendering.DebugUI;
 
 public class Arrow : MonoBehaviour
 {
@@ -673,15 +675,15 @@ public class Arrow : MonoBehaviour
                 }
                 else
                 {
-                    Dissolve();
+                    DissolveThisArrow1();
                 }
             }
         });
     }
 
-    void Dissolve()
+    void DissolveThisArrow1()
     {
-        Debug.Log("The END is HERE !!!!!!!!!!!!!!!!");
+        Debug.Log("1st The END is HERE !!!!!!!!!!!!!!!!");
         _arrowHead.gameObject.SetActive(false);
 
         int activeChildCount = 0;
@@ -706,22 +708,101 @@ public class Arrow : MonoBehaviour
         _tailCylinders[activeChildCount].gameObject.SetActive(true);
         _tailSpheres[activeChildCount].gameObject.SetActive(true);
 
+        Dissolve(activeChildCount);
+    }
+
+    void DissolveThisArrow2()
+    {
+        Debug.Log("2nd The END is HERE !!!!!!!!!!!!!!!!");
+
+        int activeChildCount = 0;
+        foreach (var item in _tailCylinders)
+        {
+            if (item.gameObject.activeSelf)
+            {
+                activeChildCount++;
+            }
+        }
+
+        for (int i = _tailCylinders.Count; i > 0; i--)
+        {
+            if (i <= activeChildCount)
+            {
+                _tailCylinders[i].localPosition = _tailCylinders[i - 1].localPosition;
+                _tailCylinders[i].rotation = _tailCylinders[i - 1].rotation;
+                _tailCylinders[i].localScale = _tailCylinders[i - 1].localScale;
+                _tailSpheres[i].localPosition = _tailSpheres[i - 1].localPosition;
+            }
+        }
+
+        Dissolve(activeChildCount);
+    }
+
+    void Dissolve(int activeChildCount)
+    {
         int currIndex = 0;
+        float finalCylinderScale = _tailCylinders[0].localScale.y;
         float startValue;
         startValue = _tailCylinders[currIndex].localScale.y;
         float duration = startValue / moveSpeed;
         _tailCylinders[currIndex + 1].localPosition = _tailCylinders[currIndex].localPosition + new Vector3(0, startValue, 0);
         float nextCylinderPosition = _tailCylinders[currIndex + 1].localPosition.y;
         _tailCylinders[currIndex + 1].localScale = new Vector3(50, 0, 50);
+        float lastCylinderScale = _tailCylinders[activeChildCount].localScale.y;
+        Vector3 lastSpherePos = _tailSpheres[activeChildCount].localPosition;
 
         ln1 = LeanTween.value(startValue, 0, duration).setOnUpdate((float value) =>
         {
             _tailCylinders[currIndex].localScale = new Vector3(50, value, 50);
             _tailCylinders[currIndex + 1].localPosition = new Vector3(0, nextCylinderPosition - (startValue - value), 0);
             _tailCylinders[currIndex + 1].localScale = new Vector3(50, startValue - value, 50);
-        }).setOnComplete(() => 
+            _tailCylinders[activeChildCount].localScale = new Vector3(50, lastCylinderScale - (startValue - value), 50);
+            Vector3 dir = (_tailSpheres[activeChildCount].position - _tailCylinders[activeChildCount].position).normalized;
+            _tailSpheres[activeChildCount].localPosition = lastSpherePos - dir * (startValue - value);
+
+        }).setOnComplete(() =>
         {
-            currIndex++;
+            ln1 = null;
+            _tailCylinders[currIndex].localScale = new Vector3(50, startValue, 50);
+            _tailCylinders[currIndex + 1].localScale = new Vector3(50, 0, 50);
+            _tailCylinders[currIndex + 1].localPosition = _tailCylinders[currIndex].localPosition + new Vector3(0, startValue, 0);
+            if (_tailCylinders[activeChildCount].localScale.y > finalCylinderScale)
+                Dissolve(activeChildCount);
+            else if(_tailCylinders[activeChildCount].localScale.y > 0)
+            {
+                Debug.Log("Last Cylinder Going !!!!!!!!");
+                startValue = _tailCylinders[activeChildCount].localScale.y;
+                float duration = startValue / moveSpeed;
+                _tailCylinders[currIndex + 1].localPosition = _tailCylinders[currIndex].localPosition + new Vector3(0, _tailCylinders[currIndex].localScale.y, 0);
+                float nextCylinderPosition = _tailCylinders[currIndex + 1].localPosition.y;
+                _tailCylinders[currIndex + 1].localScale = new Vector3(50, 0, 50);
+                float lastCylinderScale = _tailCylinders[activeChildCount].localScale.y;
+                Vector3 lastSpherePos = _tailSpheres[activeChildCount].localPosition;
+                float currentCylinderScale = _tailCylinders[currIndex].localScale.y;
+
+                ln1 = LeanTween.value(startValue, 0, duration).setOnUpdate((float value) =>
+                {
+                    _tailCylinders[currIndex].localScale = new Vector3(50, currentCylinderScale - (startValue - value), 50);
+                    _tailCylinders[currIndex + 1].localPosition = new Vector3(0, nextCylinderPosition - (startValue - value), 0);
+                    _tailCylinders[currIndex + 1].localScale = new Vector3(50, startValue - value, 50);
+                    _tailCylinders[activeChildCount].localScale = new Vector3(50, lastCylinderScale - (startValue - value), 50);
+                    Vector3 dir = (_tailSpheres[activeChildCount].position - _tailCylinders[activeChildCount].position).normalized;
+                    _tailSpheres[activeChildCount].localPosition = lastSpherePos - dir * (startValue - value);
+
+                }).setOnComplete(() =>
+                {
+                    Debug.Log("Test - 1");
+                    ln1 = null;
+                    _tailCylinders[currIndex].localScale = new Vector3(50, currentCylinderScale, 50);
+                    _tailCylinders[currIndex + 1].localPosition = _tailCylinders[currIndex].localPosition + new Vector3(0, _tailCylinders[currIndex].localScale.y, 0);
+                    _tailCylinders[currIndex + 1].localScale = new Vector3(50, 0, 50);
+
+                    _tailCylinders[activeChildCount].gameObject.SetActive(false);
+                    _tailSpheres[activeChildCount].gameObject.SetActive(false);
+
+                    DissolveThisArrow2();
+                });
+            }
         });
     }
 
